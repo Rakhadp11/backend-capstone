@@ -32,5 +32,7 @@ module.exports = {
         messagingSenderId: MESSAGING_SENDER_ID,
         appId: APP_ID,
         measurementId: MEASUREMENT_ID
-    }
+    },
+    jwtSecret: process.env.JWT_SECRET,
+    tokenExpiration: process.env.TOKEN_EXPIRATION || '1d', // Default expiration is 1 day
 }

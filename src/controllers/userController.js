@@ -3,6 +3,8 @@
 const firebase = require('../../db');
 const User = require('../models/User');
 const admin = require("firebase-admin");
+const jwt = require('jsonwebtoken');
+const config = require('../../config');
 const credentials = require("../../serviceAccountKey.json");
 
     admin.initializeApp({
@@ -24,6 +26,34 @@ const registerUser = async (req, res, next) => {
         res.status(400).send(error.message);
     }
 }
+
+const loginUser = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+
+        // Authenticate user using Firebase Authentication
+        const userRecord = await admin.auth().getUserByEmail(email);
+
+        // Check if the provided password is correct
+        const isPasswordValid = await bcrypt.compare(password, userRecord.passwordHash);
+
+        if (isPasswordValid) {
+            const userToken = generateToken(email);
+            res.json({
+                success: true,
+                message: "Login Successful",
+                token: userToken,
+            });
+        } else {
+            res.status(401).json({
+                success: false,
+                message: "Invalid credentials",
+            });
+        }
+    } catch (error) {
+        res.status(400).send(error.message);
+    }
+};
 
 const getAllUsers = async (req, res, next) => {
     try {
@@ -96,6 +126,7 @@ const deleteUser = async (req, res, next) => {
 
 module.exports = {
     registerUser,
+    loginUser,
     getAllUsers,
     getUser,
     updateUser,
