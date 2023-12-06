@@ -14,7 +14,10 @@ const {
     STORAGE_BUCKET,
     MESSAGING_SENDER_ID,
     APP_ID,
-    MEASUREMENT_ID
+    MEASUREMENT_ID,
+    JWT_SECRET,
+    TOKEN_EXPIRATION,
+    REFRESH_TOKEN
 } = process.env;
 
 assert(PORT, 'PORT is required');
@@ -33,6 +36,7 @@ module.exports = {
         appId: APP_ID,
         measurementId: MEASUREMENT_ID
     },
-    jwtSecret: process.env.JWT_SECRET,
-    tokenExpiration: process.env.TOKEN_EXPIRATION || '1d', // Default expiration is 1 day
+    jwtSecret: JWT_SECRET,
+    refreshTokenSecret: REFRESH_TOKEN,
+    tokenExpiration: TOKEN_EXPIRATION || '1d', // Default expiration is 1 day
 }
