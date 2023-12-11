@@ -10,7 +10,6 @@ class User {
         this.password = this.encryptPassword(password);
         this.created_at = admin.firestore.FieldValue.serverTimestamp();
         this.refresh_token = refresh_token;
-        this.updated_at = null;
     }
 
     async encryptPassword(password) {

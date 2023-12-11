@@ -25,7 +25,7 @@ const registerUser = async (req, res, next) => {
         }
 
         // Hash the password using bcrypt
-        const saltRounds = 10;
+        const saltRounds = 12;
         const hashedPassword = await bcrypt.hash(data.password, saltRounds);
 
         // Save the hashed password to the data object
@@ -34,7 +34,7 @@ const registerUser = async (req, res, next) => {
             password: hashedPassword,
             created_at: admin.firestore.FieldValue.serverTimestamp(),
         };
-        // Store the user data in Firestore
+
         await firestore.collection('users').doc().set(userData);
 
         res.json({
@@ -55,7 +55,6 @@ const loginUser = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Email is required' });
         }
 
-        // Check credentials and fetch user from Firestore
         const usersCollection = await firestore.collection('users');
         const querySnapshot = await usersCollection.where('email', '==', email).get();
 
@@ -73,10 +72,9 @@ const loginUser = async (req, res, next) => {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
 
-        // Assuming credentials are valid, proceed with token generation
         const user = {
             id: userDoc.id,
-            email: userData.email,
+            username: userData.username,
         };
 
         const accessToken = generateAccessToken(user);
@@ -87,89 +85,141 @@ const loginUser = async (req, res, next) => {
 
         res.json({
             success: true,
-            accessToken,
-            refreshToken,
+            message:"Account successfully logged in",
+            data: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                accessToken,
+                refreshToken,
+            },
         });
     } catch (error) {
         res.status(400).send(error.message);
     }
 };
 
-
-
 const getAllUsers = async (req, res, next) => {
     try {
-        const users = await firestore.collection('users');
-        const data = await users.get();
-        const usersArray = [];
-        if(data.empty) {
-            res.status(404).send('No user record found');
-        }else {
-            data.forEach(doc => {
-                const user = new User(
-                    doc.id,
-                    doc.data().username,
-                    doc.data().email,
-                    doc.data().password,
-                    doc.data().created_at,
-                    doc.data().updated_at,
-                );
-                usersArray.push(user);
-            });
-            return res.json({
-                success:true,
-                message:"User data has been successfully accepted",
-                data: usersArray
-            });
-        }
-    } catch (error) {
-        res.status(400).send(error.message);
-    }
-}
+        const usersCollection = firestore.collection('users');
+        const data = await usersCollection.get();
 
-const getUser = async (req, res, next) => {
+        if (data.empty) {
+            return res.status(404).json({ success: false, message: 'No user record found' });
+        }
+
+        const usersArray = data.docs.map(doc => {
+            const userData = doc.data();
+            const user = {
+                id: doc.id,
+                username: userData.username,
+                email: userData.email,
+                password: userData.password,
+                access_token: userData.access_token || '',
+                refresh_token: userData.refresh_token,
+                created_at: userData.created_at,
+            };
+            return user;
+        });
+
+        return res.json({
+            success: true,
+            message: 'User data has been successfully accepted',
+            data: usersArray,
+        });
+    } catch (error) {
+        console.error('Error fetching user data:', error);
+        return res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+const getUserById = async (req, res, next) => {
     try {
         const id = req.params.id;
         const user = await firestore.collection('users').doc(id);
         const data = await user.get();
-        if(!data.exists) {
-            res.status(404).send('User with the given ID not found');
-        }else {
-            res.send(data.data());
-            res.send({ msg: "User data based on ID has been successfully accepted" });
+
+        if (!data.exists) {
+            return res.status(404).json({ success: false, message: 'User with the given ID not found' });
+        } else {
+            const userData = data.data();
+            const userResponse = {
+                id: data.id,
+                username: userData.username,
+                email: userData.email,
+                password: userData.password,
+                access_token: userData.access_token || '',
+                refresh_token: userData.refresh_token,
+                created_at: userData.created_at,
+            };
+
+            return res.json({
+                success: true,
+                message: 'User data based on ID has been successfully retrieved',
+                data: userResponse,
+            });
         }
     } catch (error) {
-        res.status(400).send(error.message);
+        console.error('Error fetching user data by ID:', error);
+        return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 const updateUser = async (req, res, next) => {
     try {
         const id = req.params.id;
-        const data = req.body;
-        const user =  await firestore.collection('users').doc(id);
-        await user.update(data);
-        res.send('User data has been successfully updated');        
+        const newData = req.body;
+
+        const userRef = firestore.collection('users').doc(id);
+        const user = await userRef.get();
+
+        if (!user.exists) {
+            return res.status(404).json({ success: false, message: 'User with the given ID not found' });
+        }
+
+        await userRef.update(newData);
+
+        res.json({
+            success: true,
+            message: 'User data has been successfully updated',
+            data: { id, ...newData },
+        });
     } catch (error) {
-        res.status(400).send(error.message);
+        console.error('Error updating user data:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
+
 
 const deleteUser = async (req, res, next) => {
     try {
         const id = req.params.id;
-        await firestore.collection('users').doc(id).delete();
-        res.send('User data has been successfully deleted');
+        const userRef = firestore.collection('users').doc(id);
+        const user = await userRef.get();
+
+        if (!user.exists) {
+            return res.status(404).json({ success: false, message: 'User with the given ID not found' });
+        }
+
+        await userRef.delete();
+
+        res.json({
+            success: true,
+            message: 'User has been successfully deleted',
+            data: { id, ...user.data() },
+        });
     } catch (error) {
-        res.status(400).send(error.message);
+        console.error('Error deleting user data:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
+
 
 module.exports = {
     registerUser,
     loginUser,
     getAllUsers,
-    getUser,
+    getUserById,
     updateUser,
     deleteUser
 }
