@@ -19,7 +19,17 @@ const registerUser = async (req, res, next) => {
     try {
         const data = req.body;
 
-        // Check if password is provided
+        const existingUserByEmail = await firestore.collection('users').where('email', '==', data.email).get();
+        const existingUserByUsername = await firestore.collection('users').where('username', '==', data.username).get();
+
+        if (!existingUserByEmail.empty) {
+            return res.status(400).json({ success: false, message: 'Email is already registered' });
+        }
+
+        if (!existingUserByUsername.empty) {
+            return res.status(400).json({ success: false, message: 'Username is already taken' });
+        }
+
         if (!data.password) {
             return res.status(400).json({ success: false, message: 'Password is required' });
         }
@@ -28,7 +38,6 @@ const registerUser = async (req, res, next) => {
         const saltRounds = 12;
         const hashedPassword = await bcrypt.hash(data.password, saltRounds);
 
-        // Save the hashed password to the data object
         const userData = {
             ...data,
             password: hashedPassword,
@@ -50,7 +59,6 @@ const loginUser = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
-        // Check if email is provided
         if (!email) {
             return res.status(400).json({ success: false, message: 'Email is required' });
         }
